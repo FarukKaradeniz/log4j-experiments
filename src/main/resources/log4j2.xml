@@ -6,10 +6,22 @@
                     pattern="%style{%d{yyyy-MM-dd HH:mm:ss.SSSXXX}}{yellow} %style{[%20.25t]}{blue} %highlight{[%-5level]}{FATAL=bg_red bold, ERROR=red bold, WARN=yellow bold, INFO=green} %style{%-40.40c{1.}}{cyan} : %msg%n"
                     disableAnsi="false"/>
         </Console>
+        <JDBC name="JDBC" bufferSize="1" tableName="LOG_EVENT">
+            <ConnectionFactory class="com.farukkaradeniz.log4jexperiments.ConnectionFactory"
+                               method="getDatabaseConnection"/>
+            <Column name="event_time" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSXXX}"/>
+            <Column name="level" pattern="%level"/>
+            <Column name="logger_name" pattern="%logger"/>
+            <Column name="message" pattern="%message"/>
+        </JDBC>
+        <Async name="Async-JDBC">
+            <AppenderRef ref="JDBC"/>
+        </Async>
     </Appenders>
     <Loggers>
         <Root level="info">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="Async-JDBC"/>
         </Root>
     </Loggers>
 </Configuration>
