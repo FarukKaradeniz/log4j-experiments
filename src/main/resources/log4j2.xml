@@ -6,6 +6,16 @@
                     pattern="%style{%d{yyyy-MM-dd HH:mm:ss.SSSXXX}}{yellow} %style{[%20.25t]}{blue} %highlight{[%-5level]}{FATAL=bg_red bold, ERROR=red bold, WARN=yellow bold, INFO=green} %style{%-40.40c{1.}}{cyan} : %msg%n"
                     disableAnsi="false"/>
         </Console>
+        <RollingFile name="RollingFileAppender"
+                     fileName="target/logfile.xml"
+                     filePattern="target/logfile-%d{yyyy-MM-dd}-%i.zip"
+                     ignoreExceptions="false"
+        >
+            <XMLLayout/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="32 kB"/>
+            </Policies>
+        </RollingFile>
         <JDBC name="JDBC" bufferSize="1" tableName="LOG_EVENT">
             <ConnectionFactory class="com.farukkaradeniz.log4jexperiments.ConnectionFactory"
                                method="getDatabaseConnection"/>
@@ -22,6 +32,7 @@
         <Root level="info">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="Async-JDBC"/>
+            <AppenderRef ref="RollingFileAppender"/>
         </Root>
     </Loggers>
 </Configuration>
