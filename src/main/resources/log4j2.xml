@@ -7,11 +7,13 @@
                     disableAnsi="false"/>
         </Console>
         <RollingFile name="RollingFileAppender"
-                     fileName="target/logfile.xml"
+                     fileName="target/logfile.log"
                      filePattern="target/logfile-%d{yyyy-MM-dd}-%i.zip"
                      ignoreExceptions="false"
         >
-            <XMLLayout/>
+            <PatternLayout>
+                <Pattern>%d{yyyy-MM-dd HH:mm:ss.SSSXXX} [%t] [%level] %-40.40c{1.} : %msg%n</Pattern>
+            </PatternLayout>
             <Policies>
                 <SizeBasedTriggeringPolicy size="32 kB"/>
             </Policies>
