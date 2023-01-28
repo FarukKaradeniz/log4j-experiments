@@ -8,6 +8,7 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -15,8 +16,9 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -36,24 +38,41 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         ContentCachingRequestWrapper requestWrapper = requestWrapper(request);
         ContentCachingResponseWrapper responseWrapper = responseWrapper(response);
 
+        var start = OffsetDateTime.now();
         filterChain.doFilter(requestWrapper, responseWrapper);
+        logRequest(requestWrapper);
+        logResponse(responseWrapper, ChronoUnit.MILLIS.between(start, OffsetDateTime.now()));
+        responseWrapper.copyBodyToResponse();
+    }
 
-        var logModelBuilder = LogModel.builder();
+    @SneakyThrows
+    private void logRequest(ContentCachingRequestWrapper requestWrapper) {
+        var logModelBuilder = RequestLogModel.builder();
         var requestBodyContent = new String(requestWrapper.getContentAsByteArray());
         if (!requestBodyContent.isBlank()) {
             logModelBuilder.requestBody(objectMapper.readValue(requestBodyContent, Object.class));
         }
+
+        logModelBuilder
+                .date(OffsetDateTime.now())
+                .requestHeaders(headersToMap(list(requestWrapper.getHeaderNames()), requestWrapper::getHeader))
+                .method(requestWrapper.getMethod());
+        log.info("Request: " + objectMapper.writeValueAsString(logModelBuilder.build()));
+    }
+
+    @SneakyThrows
+    private void logResponse(ContentCachingResponseWrapper responseWrapper, long elapsedTime) {
+        var logModelBuilder = ResponseLogModel.builder();
+
         var responseBodyContent = new String(responseWrapper.getContentAsByteArray());
         if (!responseBodyContent.isBlank()) {
             logModelBuilder.responseBody(objectMapper.readValue(responseBodyContent, Object.class));
         }
         logModelBuilder
-                .date(new Date())
-                .requestHeaders(headersToMap(list(request.getHeaderNames()), request::getHeader))
-                .method(request.getMethod())
-                .responseHeaders(headersToMap(response.getHeaderNames(), response::getHeader));
-        responseWrapper.copyBodyToResponse();
-        log.info(objectMapper.writeValueAsString(logModelBuilder.build()));
+                .date(OffsetDateTime.now())
+                .elapsedTime(elapsedTime)
+                .responseHeaders(headersToMap(responseWrapper.getHeaderNames(), responseWrapper::getHeader));
+        log.info("Response: " + objectMapper.writeValueAsString(logModelBuilder.build()));
     }
 
 
