@@ -32,40 +32,36 @@ public class FeignLogger extends Logger {
     @SneakyThrows
     @Override
     protected void logRequest(String configKey, Level logLevel, Request request) {
-        var requestLogBuilder = RequestLogModel.builder();
+    }
 
+    @Override
+    protected Response logAndRebufferResponse(String configKey, Level logLevel, Response response, long elapsedTime) throws IOException {
+        var requestLogBuilder = RequestLogModel.builder();
+        var request = response.request();
+        Reader reader = response.body().asReader(StandardCharsets.UTF_8);
+
+        var responseString = IOUtils.toString(reader);
+        requestLogBuilder.responseBody(objectMapper.readValue(responseString, Object.class));
         if (request.body() != null) {
             var requestBodyContent = new String(request.body());
             if (!requestBodyContent.isBlank()) {
                 requestLogBuilder.requestBody(objectMapper.readValue(requestBodyContent, Object.class));
             }
         }
-
-
         requestLogBuilder
-                .date(OffsetDateTime.now())
-                .requestHeaders(headersToMap(request.headers()))
-                .method(request.httpMethod().name());
-        log.info("Feign Request: " + objectMapper.writeValueAsString(requestLogBuilder.build()));
-    }
-
-    @Override
-    protected Response logAndRebufferResponse(String configKey, Level logLevel, Response response, long elapsedTime) throws IOException {
-        var responseLogBuilder = ResponseLogModel.builder();
-
-        Reader reader = response.body().asReader(StandardCharsets.UTF_8);
-
-        var responseString = IOUtils.toString(reader);
-        responseLogBuilder.responseBody(objectMapper.readValue(responseString, Object.class));
-
-        responseLogBuilder
+                .url(request.url())
+                .direction("OUTBOUND")
+                .httpStatus(response.status())
                 .date(OffsetDateTime.now())
                 .elapsedTime(elapsedTime)
                 .method(response.request().httpMethod().name())
+                .requestHeaders(headersToMap(request.headers()))
                 .responseHeaders(headersToMap(response.headers()));
-        log.info("Feign Response: " + objectMapper.writeValueAsString(responseLogBuilder.build()));
+        log.info("Feign Request: " + objectMapper.writeValueAsString(requestLogBuilder.build()));
 
-        return response.toBuilder().body(responseString, StandardCharsets.UTF_8).headers(response.headers()).build();
+        return response.toBuilder()
+                .body(responseString, StandardCharsets.UTF_8)
+                .headers(response.headers()).build();
     }
 
     private Map<String, String> headersToMap(Map<String, Collection<String>> headers) {

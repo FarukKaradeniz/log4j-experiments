@@ -37,44 +37,39 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         ContentCachingRequestWrapper requestWrapper = requestWrapper(request);
         ContentCachingResponseWrapper responseWrapper = responseWrapper(response);
-
         var start = OffsetDateTime.now();
         filterChain.doFilter(requestWrapper, responseWrapper);
-        logRequest(requestWrapper);
-        logResponse(responseWrapper, ChronoUnit.MILLIS.between(start, OffsetDateTime.now()));
+        logRequest(requestWrapper, responseWrapper, start);
         responseWrapper.copyBodyToResponse();
     }
 
     @SneakyThrows
-    private void logRequest(ContentCachingRequestWrapper requestWrapper) {
+    private void logRequest(ContentCachingRequestWrapper requestWrapper, ContentCachingResponseWrapper responseWrapper, OffsetDateTime start) {
         var logModelBuilder = RequestLogModel.builder();
         var requestBodyContent = new String(requestWrapper.getContentAsByteArray());
         if (!requestBodyContent.isBlank()) {
             logModelBuilder.requestBody(objectMapper.readValue(requestBodyContent, Object.class));
         }
-
-        logModelBuilder
-                .date(OffsetDateTime.now())
-                .requestHeaders(headersToMap(list(requestWrapper.getHeaderNames()), requestWrapper::getHeader))
-                .method(requestWrapper.getMethod());
-        log.info("Request: " + objectMapper.writeValueAsString(logModelBuilder.build()));
-    }
-
-    @SneakyThrows
-    private void logResponse(ContentCachingResponseWrapper responseWrapper, long elapsedTime) {
-        var logModelBuilder = ResponseLogModel.builder();
-
         var responseBodyContent = new String(responseWrapper.getContentAsByteArray());
         if (!responseBodyContent.isBlank()) {
             logModelBuilder.responseBody(objectMapper.readValue(responseBodyContent, Object.class));
         }
+
         logModelBuilder
+                .elapsedTime(ChronoUnit.MILLIS.between(start, OffsetDateTime.now()))
+                .direction("INBOUND")
+                .url(getFullUrl(requestWrapper))
+                .httpStatus(responseWrapper.getStatus())
                 .date(OffsetDateTime.now())
-                .elapsedTime(elapsedTime)
-                .responseHeaders(headersToMap(responseWrapper.getHeaderNames(), responseWrapper::getHeader));
-        log.info("Response: " + objectMapper.writeValueAsString(logModelBuilder.build()));
+                .requestHeaders(headersToMap(list(requestWrapper.getHeaderNames()), requestWrapper::getHeader))
+                .responseHeaders(headersToMap(responseWrapper.getHeaderNames(), responseWrapper::getHeader))
+                .method(requestWrapper.getMethod());
+        log.info("Request: " + objectMapper.writeValueAsString(logModelBuilder.build()));
     }
 
+    private String getFullUrl(ContentCachingRequestWrapper requestWrapper) {
+        return requestWrapper.getRequestURL().toString() + "?" + requestWrapper.getQueryString();
+    }
 
     private String headersToString(Collection<String> headerNames, Function<String, String> headerValueResolver) {
         StringBuilder builder = new StringBuilder();
