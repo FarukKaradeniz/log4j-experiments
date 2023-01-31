@@ -2,6 +2,7 @@ package com.farukkaradeniz.log4jexperiments;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Logger;
+import feign.codec.ErrorDecoder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +23,11 @@ public class FeignConfig {
     @Bean
     public Logger getLogger() {
         return new FeignLogger(objectMapper);
+    }
+
+    @Bean
+    public ErrorDecoder errorDecoder() {
+        return new FeignErrorDecoder(objectMapper);
     }
 
 }
